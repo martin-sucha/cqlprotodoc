@@ -4,10 +4,6 @@
 <head>
     <title>{{.Title}}</title>
     <style>
-        .license {
-            white-space: pre;
-            font-family: monospace;
-        }
         nav ol {
             margin: 0;
             padding: 0;
@@ -36,9 +32,7 @@
             <li><a href="NOTICE">NOTICE</a></li>
         </ul>
     </nav>
-    <section class="license">
-        {{.License}}
-    </section>
+    <pre>{{.LicenseHTML}}</pre>
     <h1>{{.Title}}</h1>
     <h2>Table of Contents</h2>
         <nav>

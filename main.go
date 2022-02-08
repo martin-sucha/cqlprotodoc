@@ -45,8 +45,9 @@ func buildTOCTree(entries []spec.TOCEntry, sectionNumbers map[string]struct{}) [
 
 type templateData struct {
 	spec.Document
-	TOCTree  []*TOCNode
-	Sections []Section
+	LicenseHTML template.HTML
+	TOCTree     []*TOCNode
+	Sections    []Section
 }
 
 type Section struct {
@@ -145,9 +146,10 @@ func processDocument(inputPath, outputPath string) (outErr error) {
 		}
 	}()
 	return tmpl.Execute(f, templateData{
-		Document: doc,
-		TOCTree:  buildTOCTree(doc.TOC, sectionNumbers),
-		Sections: buildSections(doc.Sections, sectionNumbers),
+		Document:    doc,
+		LicenseHTML: formatBody(doc.License, sectionNumbers),
+		TOCTree:     buildTOCTree(doc.TOC, sectionNumbers),
+		Sections:    buildSections(doc.Sections, sectionNumbers),
 	})
 }
 

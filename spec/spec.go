@@ -9,7 +9,7 @@ import (
 )
 
 type Document struct {
-	License  string
+	License  []Text
 	Title    string
 	TOC      []TOCEntry
 	Sections []Section
@@ -66,7 +66,7 @@ func Parse(data string) (Document, error) {
 		license.WriteString("\n")
 		l++
 	}
-	doc.License = license.String()
+	doc.License = parseBody(strings.Trim(license.String(), "\n "))
 	// empty lines
 	for l < len(lines) && emptyRegexp.MatchString(lines[l]) {
 		l++
