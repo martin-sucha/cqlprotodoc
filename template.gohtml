@@ -38,7 +38,8 @@
 {{ define "tocNodes" }}
     {{- /*gotype: cqlprotodoc.TOCNode*/ -}}
     {{ range . }}
-        <li>{{.Number}} <a href="#s{{.Number}}">{{.Title}}</a>
+        <li id="toc{{.Number}}">{{.Number}}
+            {{if .Exists}}<a href="#s{{.Number}}">{{.Title}}</a>{{else}}{{.Title}}{{end}}
         {{ with .Children }}
             <ol>
                 {{ template "tocNodes" . }}
