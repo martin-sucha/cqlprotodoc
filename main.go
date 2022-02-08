@@ -13,6 +13,9 @@ import (
 //go:embed template.gohtml
 var templateFS embed.FS
 
+//go:embed template-notice.txt
+var notice []byte
+
 type TOCNode struct {
 	spec.TOCEntry
 	Exists   bool
@@ -163,5 +166,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", name, err)
 			return
 		}
+	}
+	err := os.WriteFile(filepath.Join(outputDir, "NOTICE"), notice, 0666)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "NOTICE: %v\n", err)
+		return
 	}
 }
