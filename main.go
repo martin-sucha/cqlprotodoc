@@ -111,22 +111,16 @@ func checkSectionLinks(d spec.Document, sectionNumbers, tocNumbers map[string]st
 	}
 }
 
-func main() {
-	if len(os.Args) != 3 {
-		fmt.Fprintln(os.Stderr, "Usage: <cassandra_doc_dir> <output_dir>")
-		return
-	}
-	inputDir := os.Args[1]
-	outputDir := os.Args[2]
-	data, err := os.ReadFile(filepath.Join(inputDir, "native_protocol_v5.spec"))
+var tmpl = template.Must(template.ParseFS(templateFS, "template.gohtml"))
+
+func processDocument(inputPath, outputPath string) (outErr error) {
+	data, err := os.ReadFile(inputPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return
+		return err
 	}
 	doc, err := spec.Parse(string(data))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return
+		return err
 	}
 	sectionNumbers := make(map[string]struct{})
 	for _, s := range doc.Sections {
@@ -137,23 +131,37 @@ func main() {
 		tocNumbers[t.Number] = struct{}{}
 	}
 	checkSectionLinks(doc, sectionNumbers, tocNumbers)
-	tmpl, err := template.ParseFS(templateFS, "template.gohtml")
+	f, err := os.Create(outputPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return
+		return err
 	}
-	f, err := os.Create(filepath.Join(outputDir, "native_protocol_v5.html"))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return
-	}
-	err = tmpl.Execute(f, templateData{
+	defer func() {
+		closeErr := f.Close()
+		if closeErr != nil && outErr == nil {
+			outErr = closeErr
+		}
+	}()
+	return tmpl.Execute(f, templateData{
 		Document: doc,
 		TOCTree:  buildTOCTree(doc.TOC, sectionNumbers),
 		Sections: buildSections(doc.Sections, sectionNumbers),
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+}
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "Usage: <cassandra_doc_dir> <output_dir>")
 		return
+	}
+	inputDir := os.Args[1]
+	outputDir := os.Args[2]
+	for _, name := range []string{"v5", "v4", "v3"} {
+		fmt.Fprintln(os.Stderr, name)
+		err := processDocument(filepath.Join(inputDir, fmt.Sprintf("native_protocol_%s.spec", name)),
+			filepath.Join(outputDir, fmt.Sprintf("native_protocol_%s.html", name)))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", name, err)
+			return
+		}
 	}
 }
