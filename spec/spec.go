@@ -3,6 +3,7 @@ package spec
 
 import (
 	"fmt"
+	"github.com/mvdan/xurls"
 	"regexp"
 	"strings"
 )
@@ -22,7 +23,21 @@ type TOCEntry struct {
 type Section struct {
 	Number string
 	Title  string
-	Body   string
+	Body   []Text
+}
+
+func (s Section) Empty() bool {
+	return s.Number == "" && s.Title == "" && len(s.Body) == 0
+}
+
+// Text token in section body.
+type Text struct {
+	// Text that is displayed.
+	Text string
+	// SectionRef is the number of section this text links to.
+	SectionRef string
+	// Href is URL this text links to.
+	Href string
 }
 
 var commentRegexp = regexp.MustCompile("^# ?(.*)$")
@@ -109,7 +124,7 @@ func Parse(data string) (Document, error) {
 		var newSection Section
 		sectionStart, tocIdx, newSection = checkSectionStart(doc.TOC, tocIdx, lines[l])
 		if sectionStart {
-			section.Body = strings.Join(body, "\n")
+			section.Body = parseBody(strings.Join(body, "\n"))
 			doc.Sections = append(doc.Sections, section)
 			section = newSection
 			body = nil
@@ -124,9 +139,8 @@ func Parse(data string) (Document, error) {
 		l++
 	}
 
-	var emptySection Section
-	if len(body) > 0 || section != emptySection {
-		section.Body = strings.Join(body, "\n")
+	if len(body) > 0 || !section.Empty() {
+		section.Body = parseBody(strings.Join(body, "\n"))
 		doc.Sections = append(doc.Sections, section)
 	}
 
@@ -162,4 +176,51 @@ func checkSectionStart(toc []TOCEntry, tocIdx int, line string) (bool, int, Sect
 	}
 
 	return false, tocIdx, Section{}
+}
+
+var linkifyRegexp *regexp.Regexp
+var sectionSubexpIdx int
+var sectionsSubexpIdx int
+
+func init() {
+	s := xurls.Strict.String()
+	r := `(?:<URL>)|[Ss]ection (\d+(?:\.\d+)*)|[Ss]ections (\d+(?:\.\d+)*(?:(?:, (?:and )?| and )\d+(?:\.\d+)*)*)`
+	linkifyRegexp = regexp.MustCompile(strings.ReplaceAll(r, "<URL>", s))
+	sectionSubexpIdx = xurls.Strict.NumSubexp()*2 + 2
+	sectionsSubexpIdx = (xurls.Strict.NumSubexp()+1)*2 + 2
+}
+
+var sectionsSplitRegexp = regexp.MustCompile("(?:, (?:and )?| and )")
+
+func parseBody(s string) []Text {
+	var body []Text
+	lastIdx := 0
+	for _, m := range linkifyRegexp.FindAllStringSubmatchIndex(s, -1) {
+		body = append(body, Text{Text: s[lastIdx:m[0]]})
+
+		switch {
+		case m[sectionSubexpIdx] != -1:
+			sectionNo := s[m[sectionSubexpIdx]:m[sectionSubexpIdx+1]]
+			body = append(body, Text{Text: s[m[0]:m[1]], SectionRef: sectionNo})
+		case m[sectionsSubexpIdx] != -1:
+			body = append(body, Text{Text: s[m[0]:m[sectionsSubexpIdx]]})
+			sections := s[m[sectionsSubexpIdx]:m[sectionsSubexpIdx+1]]
+			lastIdx2 := 0
+			for _, m2 := range sectionsSplitRegexp.FindAllStringIndex(sections, -1) {
+				sectionNo := sections[lastIdx2:m2[0]]
+				body = append(body, Text{Text: sectionNo, SectionRef: sectionNo})
+				// separator
+				body = append(body, Text{Text: sections[m2[0]:m2[1]]})
+				lastIdx2 = m2[1]
+			}
+			sectionNo := sections[lastIdx2:]
+			body = append(body, Text{Text: sectionNo, SectionRef: sectionNo})
+		default:
+			href := s[m[0]:m[1]]
+			body = append(body, Text{Text: href, Href: href})
+		}
+		lastIdx = m[1]
+	}
+	body = append(body, Text{Text: s[lastIdx:]})
+	return body
 }

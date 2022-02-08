@@ -4,11 +4,9 @@ import (
 	"cqlprotodoc/spec"
 	"embed"
 	"fmt"
-	"github.com/mvdan/xurls"
 	"html/template"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -51,20 +49,6 @@ type Section struct {
 	BodyHTML template.HTML
 }
 
-var linkifyRegexp *regexp.Regexp
-var sectionSubexpIdx int
-var sectionsSubexpIdx int
-
-func init() {
-	s := xurls.Strict.String()
-	r := `(?:<URL>)|[Ss]ection (\d+(?:\.\d+)*)|[Ss]ections (\d+(?:\.\d+)*(?:(?:, (?:and )?| and )\d+(?:\.\d+)*)*)`
-	linkifyRegexp = regexp.MustCompile(strings.ReplaceAll(r, "<URL>", s))
-	sectionSubexpIdx = xurls.Strict.NumSubexp()*2 + 2
-	sectionsSubexpIdx = (xurls.Strict.NumSubexp()+1)*2 + 2
-}
-
-var sectionsSplitRegexp = regexp.MustCompile("(?:, (?:and )?| and )")
-
 func link(sb *strings.Builder, href, text string) {
 	sb.WriteString(`<a href="`)
 	sb.WriteString(template.HTMLEscapeString(href))
@@ -73,36 +57,18 @@ func link(sb *strings.Builder, href, text string) {
 	sb.WriteString(`</a>`)
 }
 
-func formatBody(s string) template.HTML {
+func formatBody(text []spec.Text) template.HTML {
 	var sb strings.Builder
-	lastIdx := 0
-	for _, m := range linkifyRegexp.FindAllStringSubmatchIndex(s, -1) {
-		sb.WriteString(template.HTMLEscapeString(s[lastIdx:m[0]]))
-
+	for _, t := range text {
 		switch {
-		case m[sectionSubexpIdx] != -1:
-			sectionNo := s[m[sectionSubexpIdx]:m[sectionSubexpIdx+1]]
-			link(&sb, "#s"+sectionNo, s[m[0]:m[1]])
-		case m[sectionsSubexpIdx] != -1:
-			sb.WriteString(s[m[0]:m[sectionsSubexpIdx]])
-			sections := s[m[sectionsSubexpIdx]:m[sectionsSubexpIdx+1]]
-			lastIdx2 := 0
-			for _, m2 := range sectionsSplitRegexp.FindAllStringIndex(sections, -1) {
-				sectionNo := sections[lastIdx2:m2[0]]
-				link(&sb, "#s"+sectionNo, sectionNo)
-				// separator
-				sb.WriteString(sections[m2[0]:m2[1]])
-				lastIdx2 = m2[1]
-			}
-			sectionNo := sections[lastIdx2:]
-			link(&sb, "#s"+sectionNo, sectionNo)
+		case t.SectionRef != "":
+			link(&sb, "#s"+t.SectionRef, t.Text)
+		case t.Href != "":
+			link(&sb, t.Href, t.Text)
 		default:
-			href := s[m[0]:m[1]]
-			link(&sb, href, href)
+			sb.WriteString(template.HTMLEscapeString(t.Text))
 		}
-		lastIdx = m[1]
 	}
-	sb.WriteString(template.HTMLEscapeString(s[lastIdx:]))
 	return template.HTML(sb.String())
 }
 
