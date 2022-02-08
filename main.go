@@ -65,6 +65,14 @@ func init() {
 
 var sectionsSplitRegexp = regexp.MustCompile("(?:, (?:and )?| and )")
 
+func link(sb *strings.Builder, href, text string) {
+	sb.WriteString(`<a href="`)
+	sb.WriteString(template.HTMLEscapeString(href))
+	sb.WriteString(`">`)
+	sb.WriteString(template.HTMLEscapeString(text))
+	sb.WriteString(`</a>`)
+}
+
 func formatBody(s string) template.HTML {
 	var sb strings.Builder
 	lastIdx := 0
@@ -73,40 +81,24 @@ func formatBody(s string) template.HTML {
 
 		switch {
 		case m[sectionSubexpIdx] != -1:
-			sb.WriteString(`<a href="`)
-			sb.WriteString(template.HTMLEscapeString("#s" + s[m[sectionSubexpIdx]:m[sectionSubexpIdx+1]]))
-			sb.WriteString(`">`)
-			sb.WriteString(template.HTMLEscapeString(s[m[0]:m[1]]))
-			sb.WriteString(`</a>`)
+			sectionNo := s[m[sectionSubexpIdx]:m[sectionSubexpIdx+1]]
+			link(&sb, "#s"+sectionNo, s[m[0]:m[1]])
 		case m[sectionsSubexpIdx] != -1:
 			sb.WriteString(s[m[0]:m[sectionsSubexpIdx]])
 			sections := s[m[sectionsSubexpIdx]:m[sectionsSubexpIdx+1]]
 			lastIdx2 := 0
 			for _, m2 := range sectionsSplitRegexp.FindAllStringIndex(sections, -1) {
-				// section number
-				num := sections[lastIdx2:m2[0]]
-				sb.WriteString(`<a href="`)
-				sb.WriteString(template.HTMLEscapeString("#s" + num))
-				sb.WriteString(`">`)
-				sb.WriteString(template.HTMLEscapeString(num))
-				sb.WriteString(`</a>`)
+				sectionNo := sections[lastIdx2:m2[0]]
+				link(&sb, "#s"+sectionNo, sectionNo)
 				// separator
 				sb.WriteString(sections[m2[0]:m2[1]])
 				lastIdx2 = m2[1]
 			}
-			// section number
-			num := sections[lastIdx2:]
-			sb.WriteString(`<a href="`)
-			sb.WriteString(template.HTMLEscapeString("#s" + num))
-			sb.WriteString(`">`)
-			sb.WriteString(template.HTMLEscapeString(num))
-			sb.WriteString(`</a>`)
+			sectionNo := sections[lastIdx2:]
+			link(&sb, "#s"+sectionNo, sectionNo)
 		default:
-			sb.WriteString(`<a href="`)
-			sb.WriteString(template.HTMLEscapeString(s[m[0]:m[1]]))
-			sb.WriteString(`">`)
-			sb.WriteString(template.HTMLEscapeString(s[m[0]:m[1]]))
-			sb.WriteString(`</a>`)
+			href := s[m[0]:m[1]]
+			link(&sb, href, href)
 		}
 		lastIdx = m[1]
 	}
