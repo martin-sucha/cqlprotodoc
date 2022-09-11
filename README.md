@@ -6,3 +6,5 @@ Usage:
 
 1. Update template-notice.txt based on your Cassandra distribution.
 2. `cqlprotodoc <path_to_cassandra_doc_dir> <output_dir>`
+
+The generated files are published at https://martin-sucha.github.io/cqlprotodoc/
